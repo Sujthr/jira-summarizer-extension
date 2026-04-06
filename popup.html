@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jira Summarizer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="brand-logo">
+          <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#1a1a4e"/>
+                <stop offset="50%" style="stop-color:#0052cc"/>
+                <stop offset="100%" style="stop-color:#2684ff"/>
+              </linearGradient>
+              <linearGradient id="letterGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#ffffff"/>
+                <stop offset="100%" style="stop-color:#b3d4ff"/>
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <circle cx="50" cy="50" r="48" fill="url(#logoBg)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+            <circle cx="50" cy="50" r="36" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+            <text x="50" y="67" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="58" font-weight="800" fill="url(#letterGlow)" filter="url(#glow)">S</text>
+            <circle cx="76" cy="24" r="5" fill="#4af" opacity="0.9"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SKT Jira Summarizer</h1>
+          <span class="brand-tagline">Epics to Exec View</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="darkModeBtn" class="icon-btn" title="Toggle Dark Mode">
+          <svg id="darkModeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button id="historyBtn" class="icon-btn" title="Summary History">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="settings-panel hidden">
+      <label for="apiKeyInput">OpenRouter API Key</label>
+      <div class="input-group">
+        <input type="password" id="apiKeyInput" placeholder="sk-or-v1-..." />
+        <button id="saveApiKey" class="btn-sm">Save</button>
+      </div>
+      <label for="modelSelect">LLM Model</label>
+      <select id="modelSelect">
+        <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (fast & cheap)</option>
+        <option value="anthropic/claude-sonnet-4">Claude Sonnet 4 (balanced)</option>
+        <option value="openai/gpt-4o-mini">GPT-4o Mini (budget)</option>
+        <option value="openai/gpt-4o">GPT-4o (premium)</option>
+        <option value="anthropic/claude-opus-4">Claude Opus 4 (best)</option>
+      </select>
+      <p class="hint">API key is stored locally in your browser. Get one free at openrouter.ai</p>
+    </div>
+
+    <!-- History Panel -->
+    <div id="historyPanel" class="history-panel hidden">
+      <div class="history-header">
+        <h3>Summary History</h3>
+        <button id="clearHistoryBtn" class="btn-sm btn-danger">Clear All</button>
+      </div>
+      <div id="historyList" class="history-list">
+        <p class="history-empty">No summaries saved yet.</p>
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="summarize">Summarize</button>
+      <button class="tab-btn" data-tab="workload">Team Workload</button>
+      <button class="tab-btn" data-tab="velocity">Velocity</button>
+    </div>
+
+    <!-- Main View / Summarize Tab -->
+    <div id="tab-summarize" class="tab-content active">
+      <div id="statusBar" class="status-bar">
+        <span id="statusText">Navigate to a Jira board, backlog, or roadmap to begin.</span>
+      </div>
+
+      <div class="actions">
+        <button id="summarizeBtn" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          Summarize This Page
+        </button>
+        <button id="manualBtn" class="btn-secondary">
+          Paste Data Manually
+        </button>
+      </div>
+
+      <!-- Manual Input -->
+      <div id="manualInput" class="hidden">
+        <textarea id="manualData" rows="6" placeholder="Paste Jira export, CSV, or describe your sprint status..."></textarea>
+        <button id="manualSummarize" class="btn-primary btn-full">Summarize Pasted Data</button>
+      </div>
+
+      <!-- Loading -->
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <span>Analyzing with AI...</span>
+      </div>
+
+      <!-- Results -->
+      <div id="results" class="results hidden">
+        <div class="result-header">
+          <h2 id="epicTitle">Executive Summary</h2>
+          <div id="ragBadge" class="rag-badge">Green</div>
+        </div>
+
+        <div id="progressSection" class="progress-section">
+          <div class="progress-label">
+            <span>Overall Progress</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div id="confidenceReason" class="confidence-reason"></div>
+
+        <div id="summaryText" class="summary-box"></div>
+
+        <!-- Sprint Health Badge -->
+        <div id="sprintHealthSection" class="sprint-health hidden">
+          <div class="health-badges">
+            <div class="health-badge">
+              <span class="health-label">Scope</span>
+              <span id="scopeBadge" class="health-value">-</span>
+            </div>
+            <div class="health-badge">
+              <span class="health-label">Team Morale</span>
+              <span id="moraleBadge" class="health-value">-</span>
+            </div>
+          </div>
+          <p id="scopeNote" class="scope-note"></p>
+        </div>
+
+        <div id="blockersSection" class="section hidden">
+          <h3>Key Blockers</h3>
+          <ul id="blockersList"></ul>
+        </div>
+
+        <div id="risksSection" class="section hidden">
+          <h3>Risks</h3>
+          <ul id="risksList"></ul>
+        </div>
+
+        <div id="highlightsSection" class="section hidden">
+          <h3>Highlights</h3>
+          <ul id="highlightsList"></ul>
+        </div>
+
+        <div id="recommendationSection" class="recommendation hidden">
+          <h3>Recommendation</h3>
+          <p id="recommendationText"></p>
+        </div>
+
+        <div class="result-actions">
+          <button id="copyBtn" class="btn-sm">Copy Summary</button>
+          <button id="copyMdBtn" class="btn-sm">Copy Markdown</button>
+          <button id="exportPdfBtn" class="btn-sm btn-accent">Export PDF</button>
+          <button id="emailBtn" class="btn-sm">Email</button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="error" class="error hidden">
+        <p id="errorText"></p>
+        <button id="retryBtn" class="btn-sm">Retry</button>
+      </div>
+    </div>
+
+    <!-- Team Workload Tab -->
+    <div id="tab-workload" class="tab-content">
+      <div id="workloadContent" class="workload-content">
+        <p class="tab-placeholder">Run a summary first to see team workload analysis.</p>
+      </div>
+    </div>
+
+    <!-- Velocity Tab -->
+    <div id="tab-velocity" class="tab-content">
+      <div id="velocityContent" class="velocity-content">
+        <p class="tab-placeholder">Run a summary first to see velocity metrics.</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-brand">
+        <svg width="14" height="14" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="48" fill="#0052cc"/>
+          <text x="50" y="67" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="58" font-weight="800" fill="white">S</text>
+        </svg>
+        <span>Built by <strong>Sujit Kumar Thakur</strong></span>
+      </div>
+      <span class="footer-version">v2.0.0</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
