@@ -43,7 +43,25 @@
         if (result.issues.length === 0) result.epics = scrapeRoadmapView();
     }
 
+    // Deduplicate by issue key
+    result.issues = deduplicateIssues(result.issues);
+
     return result;
+  }
+
+  function deduplicateIssues(issues) {
+    const seen = new Set();
+    return issues.filter((issue) => {
+      // Skip items with no key and no meaningful summary
+      if (!issue.key && !issue.summary) return false;
+      // Skip items where the "summary" is too long (likely scraped garbage)
+      if (issue.summary && issue.summary.length > 300) return false;
+
+      const id = issue.key || issue.summary;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   }
 
   function detectPageType() {
@@ -56,7 +74,6 @@
   }
 
   function extractBoardName() {
-    // Try multiple selectors for board/project name
     const selectors = [
       '[data-testid="software-board.header.title.container"] span',
       '[data-testid="board-header.title"]',
@@ -72,7 +89,6 @@
       if (el && el.textContent.trim()) return el.textContent.trim();
     }
 
-    // Fallback: extract from page title
     const title = document.title;
     if (title.includes("-")) return title.split("-")[0].trim();
     return title || "Unknown Project";
@@ -98,9 +114,9 @@
   function scrapeBoardView() {
     const issues = [];
 
-    // Jira Cloud board - column-based
+    // Jira Cloud board - find actual columns (not every droppable zone)
     const columns = document.querySelectorAll(
-      '[data-testid*="column"], [data-rbd-droppable-id], .ghx-column'
+      '[data-testid*="software-board.board"] [data-testid*="column"], .ghx-column'
     );
 
     if (columns.length > 0) {
@@ -111,8 +127,9 @@
 
         const statusName = columnHeader ? columnHeader.textContent.trim() : "Unknown";
 
+        // Only grab direct card elements, not nested sub-elements
         const cards = column.querySelectorAll(
-          '[data-testid*="card"], [data-testid*="issue"], .ghx-issue'
+          ':scope > [data-testid*="card"], [data-testid*="software-board.card-container"], .ghx-issue'
         );
 
         cards.forEach((card) => {
@@ -122,12 +139,16 @@
       });
     }
 
-    // Fallback: look for any card-like elements
+    // Fallback: look for card elements with issue keys (more targeted)
     if (issues.length === 0) {
       const allCards = document.querySelectorAll(
-        '[data-testid*="card"], [data-testid*="issue-line"], .ghx-issue, [class*="CardContainer"]'
+        '[data-testid*="software-board.card"], [data-testid*="platform-card"], .ghx-issue'
       );
       allCards.forEach((card) => {
+        // Skip if this card is nested inside another card we already found
+        if (card.closest('[data-testid*="software-board.card"]') !== card &&
+            card.matches('[data-testid*="software-board.card"]')) return;
+
         const issue = extractIssueFromCard(card, "Unknown");
         if (issue.key || issue.summary) issues.push(issue);
       });
@@ -139,8 +160,9 @@
   function scrapeBacklogView() {
     const issues = [];
 
+    // Primary: Jira backlog issue rows
     const rows = document.querySelectorAll(
-      '[data-testid*="backlog"] [data-testid*="issue"], [data-testid*="list-row"], .ghx-backlog-card, tr[data-issuekey]'
+      '[data-testid*="software-backlog.backlog-content"] [data-testid*="issue"], [data-testid*="backlog-issue"], .ghx-backlog-card, tr[data-issuekey]'
     );
 
     rows.forEach((row) => {
@@ -148,10 +170,10 @@
       if (issue.key || issue.summary) issues.push(issue);
     });
 
-    // Also try list view items
+    // Fallback: list view with issue links (but NOT generic role="row")
     if (issues.length === 0) {
       const listItems = document.querySelectorAll(
-        '[data-testid*="issue-table"] tr, [data-testid*="list-cell"], [role="row"]'
+        '[data-testid*="issue-table"] tr[data-testid*="issue"], [data-testid*="list-row"]'
       );
       listItems.forEach((item) => {
         const issue = extractIssueFromRow(item);
@@ -209,11 +231,21 @@
       flagged: false
     };
 
-    // Key
+    // Key - look for issue key pattern (e.g., PROJ-123)
     const keyEl = card.querySelector(
       '[data-testid*="key"], [data-testid*="issue-key"], .ghx-key, [class*="issueKey"]'
     );
     if (keyEl) issue.key = keyEl.textContent.trim();
+
+    // If no key found via selector, try to find it from any link with /browse/
+    if (!issue.key) {
+      const link = card.querySelector('a[href*="/browse/"]');
+      if (link) {
+        const match = link.href.match(/\/browse\/([A-Z]+-\d+)/);
+        if (match) issue.key = match[1];
+        if (!issue.summary) issue.summary = link.textContent.trim();
+      }
+    }
 
     // Summary
     const summaryEl = card.querySelector(
@@ -221,13 +253,13 @@
     );
     if (summaryEl) issue.summary = summaryEl.textContent.trim();
 
-    // If no summary found, try the card text itself
+    // If no summary found, use short card text
     if (!issue.summary) {
       const textContent = card.textContent.trim();
       if (textContent.length < 200) issue.summary = textContent;
     }
 
-    // Type (from icon or label)
+    // Type
     const typeEl = card.querySelector(
       '[data-testid*="type"], .ghx-type, [class*="issueType"]'
     );
@@ -301,7 +333,15 @@
       const keyEl = row.querySelector(
         '[data-testid*="key"], [class*="issueKey"], a[href*="browse/"]'
       );
-      if (keyEl) issue.key = keyEl.textContent.trim();
+      if (keyEl) {
+        // Extract from link href if possible
+        const link = keyEl.closest("a") || keyEl.querySelector("a") || keyEl;
+        if (link.href) {
+          const match = link.href.match(/\/browse\/([A-Z]+-\d+)/);
+          if (match) issue.key = match[1];
+        }
+        if (!issue.key) issue.key = keyEl.textContent.trim();
+      }
     }
 
     // Summary
