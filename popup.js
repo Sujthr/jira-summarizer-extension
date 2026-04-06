@@ -176,6 +176,71 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ─── Debug ─────────────────────────────────────────────────
+  const debugBtn = document.getElementById("debugBtn");
+  const debugOutput = document.getElementById("debugOutput");
+
+  debugBtn.addEventListener("click", async () => {
+    debugOutput.classList.remove("hidden");
+    debugOutput.textContent = "Scanning page DOM...";
+
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tab = tabs[0];
+
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"]
+        });
+      } catch (e) { /* already injected */ }
+
+      const debugData = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tab.id, { action: "debugScrape" }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error("Could not connect to page."));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+
+      let html = `<strong>Page:</strong> ${escapeHtml(debugData.url)}<br>`;
+      html += `<strong>Detected type:</strong> ${debugData.pageType}<br><br>`;
+
+      html += `<strong>Column selectors found:</strong><br>`;
+      for (const [name, count] of Object.entries(debugData.columnSelectors)) {
+        const cls = count > 0 ? "debug-hit" : "debug-miss";
+        html += `<span class="${cls}">${escapeHtml(name)}: ${count}</span><br>`;
+      }
+
+      html += `<br><strong>Card/element selectors found:</strong><br>`;
+      for (const [name, count] of Object.entries(debugData.cardCount)) {
+        const cls = count > 0 ? "debug-hit" : "debug-miss";
+        html += `<span class="${cls}">${escapeHtml(name)}: ${count}</span><br>`;
+      }
+
+      if (debugData.sampleColumn) {
+        html += `<br><strong>Sample column:</strong><br>`;
+        html += `Tag: ${debugData.sampleColumn.tag}, testid: "${escapeHtml(debugData.sampleColumn.testid)}"<br>`;
+        html += `Heading: "${escapeHtml(debugData.sampleColumn.headingText)}"<br>`;
+        html += `Classes: <code>${escapeHtml(debugData.sampleColumn.classes)}</code><br>`;
+      }
+
+      if (debugData.sampleCard) {
+        html += `<br><strong>Sample card:</strong><br>`;
+        html += `Tag: ${debugData.sampleCard.tag}, testid: "${escapeHtml(debugData.sampleCard.testid)}"<br>`;
+        html += `Parent testid: "${escapeHtml(debugData.sampleCard.parentTestid)}"<br>`;
+        html += `Classes: <code>${escapeHtml(debugData.sampleCard.classes)}</code><br>`;
+        html += `<details><summary>Inner HTML (first 500 chars)</summary><pre>${escapeHtml(debugData.sampleCard.innerHTML)}</pre></details>`;
+      }
+
+      debugOutput.innerHTML = html;
+    } catch (err) {
+      debugOutput.textContent = "Error: " + err.message;
+    }
+  });
+
   // ─── Manual Input ─────────────────────────────────────────
   manualBtn.addEventListener("click", () => {
     manualInput.classList.toggle("hidden");

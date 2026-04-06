@@ -1066,3 +1066,51 @@ body.dark .error p {
   background: #3b1117;
   color: #f85149;
 }
+
+/* ─── Debug Panel ────────────────────────────────────────── */
+.btn-debug {
+  padding: 9px 10px;
+  font-size: 11px;
+  flex: 0;
+}
+
+.debug-output {
+  margin: 0 16px 12px;
+  padding: 10px;
+  background: #f0f1f3;
+  border: 1px solid #dfe1e6;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.debug-output code,
+.debug-output pre {
+  font-size: 10px;
+  background: #e1e4e8;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug-hit { color: #006644; font-weight: 600; }
+.debug-miss { color: #7a869a; }
+
+body.dark .debug-output {
+  background: #0d1117;
+  border-color: #2d3748;
+  color: #c9d1d9;
+}
+
+body.dark .debug-output code,
+body.dark .debug-output pre {
+  background: #161b22;
+}
+
+body.dark .debug-hit { color: #3fb950; }
+body.dark .debug-miss { color: #484f58; }
